@@ -22,23 +22,6 @@ export const Ranker: React.FC<Props> = ({ artistName, limit = 10 }) => {
   const [votes, setVotes] = useState<Record<string, number>>({});
   const [history, setHistory] = useState<Array<{ rankings: Song[]; currentSong: Song | null; comparisonSong: Song | null; remainingSongs: Song[]; votes: Record<string, number>; }>>([]);
 
-  const findInsertionIndex = (song: Song, start: number, end: number): number => {
-    if (start >= end) {
-      return start;
-    }
-
-    const mid = Math.floor((start + end) / 2);
-    const comparison = rankings[mid];
-
-    if ((votes[song.trackId] || 0) > (votes[comparison.trackId] || 0) ||
-        ((votes[song.trackId] || 0) === (votes[comparison.trackId] || 0) && 
-         song.trackName.localeCompare(comparison.trackName) < 0)) {
-      return findInsertionIndex(song, start, mid);
-    } else {
-      return findInsertionIndex(song, mid + 1, end);
-    }
-  };
-
   const undo = (): void => {
     if (history.length === 0) return;
 
@@ -104,6 +87,23 @@ export const Ranker: React.FC<Props> = ({ artistName, limit = 10 }) => {
   };
 
   const content = useMemo(() => {
+    const findInsertionIndex = (song: Song, start: number, end: number): number => {
+      if (start >= end) {
+        return start;
+      }
+  
+      const mid = Math.floor((start + end) / 2);
+      const comparison = rankings[mid];
+  
+      if ((votes[song.trackId] || 0) > (votes[comparison.trackId] || 0) ||
+          ((votes[song.trackId] || 0) === (votes[comparison.trackId] || 0) && 
+           song.trackName.localeCompare(comparison.trackName) < 0)) {
+        return findInsertionIndex(song, start, mid);
+      } else {
+        return findInsertionIndex(song, mid + 1, end);
+      }
+    };
+
     const compare = (preference: ComparisonState): void => {
       if (!currentSong || !comparisonSong) return;
   
@@ -198,7 +198,7 @@ export const Ranker: React.FC<Props> = ({ artistName, limit = 10 }) => {
         </div>
       </div>
     );
-  }, [currentSong, comparisonSong, rankings, isComplete, isReady, votes, calculateAlbumRankings]);
+  }, [currentSong, comparisonSong, rankings, isComplete, isReady, votes, calculateAlbumRankings, remainingSongs]);
 
   useEffect(() => {
     const startRanking = (): void => {
