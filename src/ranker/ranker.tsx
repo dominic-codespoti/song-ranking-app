@@ -22,16 +22,6 @@ export const Ranker: React.FC<Props> = ({ artistName, limit = 10 }) => {
   const [votes, setVotes] = useState<Record<string, number>>({});
   const [history, setHistory] = useState<Array<{ rankings: Song[]; currentSong: Song | null; comparisonSong: Song | null; remainingSongs: Song[]; votes: Record<string, number>; }>>([]);
 
-  const startRanking = (): void => {
-    const shuffledSongs = [...songs].sort(() => Math.random() - 0.5);
-    const [first, second, ...rest] = shuffledSongs;
-    setRankings([first]);
-    setCurrentSong(second);
-    setRemainingSongs(rest);
-    setComparisonSong(first);
-    setVotes({ [first.trackId]: 1 });
-  };
-
   const findInsertionIndex = (song: Song, start: number, end: number): number => {
     if (start >= end) {
       return start;
@@ -210,13 +200,23 @@ export const Ranker: React.FC<Props> = ({ artistName, limit = 10 }) => {
         </div>
       </div>
     );
-  }, [currentSong, comparisonSong, rankings, isComplete, isReady, albums, votes, calculateAlbumRankings, compare]);
+  }, [currentSong, comparisonSong, rankings, isComplete, isReady, votes, calculateAlbumRankings, compare]);
 
   useEffect(() => {
+    const startRanking = (): void => {
+      const shuffledSongs = [...songs].sort(() => Math.random() - 0.5);
+      const [first, second, ...rest] = shuffledSongs;
+      setRankings([first]);
+      setCurrentSong(second);
+      setRemainingSongs(rest);
+      setComparisonSong(first);
+      setVotes({ [first.trackId]: 1 });
+    };
+
     if (songs.length > 0 && isReady) {
       startRanking();
     }
-  }, [songs, isReady, startRanking]);
+  }, [songs, isReady]);
 
   return (
     <div>
