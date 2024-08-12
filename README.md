@@ -1,46 +1,46 @@
-# Getting Started with Create React App
+# Song Ranking App
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+## Overview
 
-## Available Scripts
+The Song Ranking App allows users to rank songs by comparing them in pairs. Users make choices between two songs to determine their preference, and the app sorts the songs accordingly. The app also generates rankings for albums based on the ranked songs.
 
-In the project directory, you can run:
+## Features
 
-### `npm start`
+- **Song Comparison**: Users compare two songs at a time and indicate their preference.
+- **Equal Option**: Users can rank two songs as equal in preference.
+- **No Opinion Option**: Users can choose not to express an opinion about a song.
+- **Ranking**: The app continuously updates the rankings of songs based on user choices.
+- **Album Rankings**: After all songs are ranked, the app provides album rankings based on the average song ranks.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+## Installation
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+To get started with the Song Ranking App, clone the repository and install the dependencies:
 
-### `npm test`
+```
+git clone <repository-url>
+cd <repository-directory>
+npm install
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Usage
 
-### `npm run build`
+### Starting the App
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Run the development server:
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```
+npm start
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+Navigate to `http://localhost:3000` in your web browser to access the app.
 
-### `npm run eject`
+## Acceptance Criteria
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
-
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
-
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
+1. **Initial Display**: When the app opens, two random songs from a predefined set are displayed, and users can select between four options: Selection 1, Selection 2, Equal, and No Opinion.
+2. **Song Ranking**: Clicking on a song ranks it higher than the other option.
+3. **Repetition**: New songs are shown repeatedly until they are correctly positioned in the ranking.
+4. **Equal Ranking**: Clicking on "Equal" ranks the two compared songs equally.
+5. **No Opinion**: Clicking on "No Opinion" ranks the song last.
+6. **Completion**: The process repeats until all songs are ranked.
+7. **Final Rankings**: Displays a list of all songs in ranked order.
+8. **Album Rankings**: Shows rankings based on albums in a separate list below the final song rankings.
