@@ -120,7 +120,7 @@ const useSongs = ({ artistName, limit = 50, sort = 'standard' }: Props): UseSong
     };
 
     fetchSongsAndAlbums().then(() => setIsReady(true));
-  }, [artistName]);
+  }, [artistName, limit, sort]);
 
   return { songs, albums, isReady };
 };

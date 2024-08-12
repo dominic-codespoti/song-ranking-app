@@ -210,13 +210,13 @@ export const Ranker: React.FC<Props> = ({ artistName, limit = 10 }) => {
         </div>
       </div>
     );
-  }, [currentSong, comparisonSong, rankings, isComplete, isReady, albums, votes]);
+  }, [currentSong, comparisonSong, rankings, isComplete, isReady, albums, votes, calculateAlbumRankings, compare]);
 
   useEffect(() => {
     if (songs.length > 0 && isReady) {
       startRanking();
     }
-  }, [songs, isReady]);
+  }, [songs, isReady, startRanking]);
 
   return (
     <div>
