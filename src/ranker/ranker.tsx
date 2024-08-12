@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '../components/ui/button';
 import { Song, Album } from 'src/models/domain';
 import useSongs from 'src/lib/useSongs';
@@ -39,53 +39,6 @@ export const Ranker: React.FC<Props> = ({ artistName, limit = 10 }) => {
     }
   };
 
-  const compare = (preference: ComparisonState): void => {
-    if (!currentSong || !comparisonSong) return;
-
-    setHistory(prevHistory => [
-      ...prevHistory,
-      { rankings, currentSong, comparisonSong, remainingSongs, votes },
-    ]);
-
-    let newRankings = [...rankings];
-    let newVotes = { ...votes };
-    let insertionIndex: number;
-
-    switch (preference) {
-      case 'Selection 1':
-        newVotes[currentSong.trackId] = (newVotes[currentSong.trackId] || 0) + 1;
-        insertionIndex = findInsertionIndex(currentSong, 0, newRankings.length);
-        newRankings.splice(insertionIndex, 0, currentSong);
-        break;
-      case 'Selection 2':
-        newVotes[comparisonSong.trackId] = (newVotes[comparisonSong.trackId] || 0) + 1;
-        insertionIndex = findInsertionIndex(currentSong, newRankings.indexOf(comparisonSong) + 1, newRankings.length);
-        newRankings.splice(insertionIndex, 0, currentSong);
-        break;
-      case 'Equal':
-        newVotes[currentSong.trackId] = (newVotes[currentSong.trackId] || 0) + 1;
-        newVotes[comparisonSong.trackId] = (newVotes[comparisonSong.trackId] || 0) + 1;
-        insertionIndex = newRankings.indexOf(comparisonSong);
-        newRankings.splice(insertionIndex + 1, 0, currentSong);
-        break;
-      case 'No Opinion':
-        newRankings.push(currentSong);
-        break;
-    }
-
-    setRankings(newRankings);
-    setVotes(newVotes);
-    setCurrentSong(remainingSongs.length > 0 ? remainingSongs[0] : null);
-    setRemainingSongs(remainingSongs.slice(1));
-
-    if (remainingSongs.length === 0) {
-      setIsComplete(true);
-      setComparisonSong(null);
-    } else {
-      setComparisonSong(newRankings[Math.floor(newRankings.length / 2)]);
-    }
-  };
-
   const undo = (): void => {
     if (history.length === 0) return;
 
@@ -98,22 +51,20 @@ export const Ranker: React.FC<Props> = ({ artistName, limit = 10 }) => {
     setHistory(history.slice(0, history.length - 1));
   };
 
-  const calculateAlbumRankings = (): Array<Album & { averageRank: number; totalVotes: number; }> => {
-    return albums
-      .map(album => {
-        const albumSongs = rankings.filter(song => song.collectionName === album.collectionName);
-        const averageRank = albumSongs.reduce((sum, song) => sum + rankings.indexOf(song), 0) / albumSongs.length;
-        const totalVotes = albumSongs.reduce((sum, song) => sum + (votes[song.trackId] || 0), 0);
-        return { ...album, averageRank, totalVotes };
-      })
-      .filter(album => album.totalVotes > 0)
-      .sort((a, b) => {
-        if (a.totalVotes !== b.totalVotes) {
-          return b.totalVotes - a.totalVotes;
-        }
-        return a.averageRank - b.averageRank;
-      });
-  };
+  const calculateAlbumRankings = useCallback((): Array<Album & { averageRank: number; totalVotes: number; }> => albums
+    .map(album => {
+      const albumSongs = rankings.filter(song => song.collectionName === album.collectionName);
+      const averageRank = albumSongs.reduce((sum, song) => sum + rankings.indexOf(song), 0) / albumSongs.length;
+      const totalVotes = albumSongs.reduce((sum, song) => sum + (votes[song.trackId] || 0), 0);
+      return { ...album, averageRank, totalVotes };
+    })
+    .filter(album => album.totalVotes > 0)
+    .sort((a, b) => {
+      if (a.totalVotes !== b.totalVotes) {
+        return b.totalVotes - a.totalVotes;
+      }
+      return a.averageRank - b.averageRank;
+    }), [albums, rankings, votes]);
 
   const generateShareableContent = (): string => {
     let content = `My ${artistName} Song Rankings:\n\n`;
@@ -153,6 +104,53 @@ export const Ranker: React.FC<Props> = ({ artistName, limit = 10 }) => {
   };
 
   const content = useMemo(() => {
+    const compare = (preference: ComparisonState): void => {
+      if (!currentSong || !comparisonSong) return;
+  
+      setHistory(prevHistory => [
+        ...prevHistory,
+        { rankings, currentSong, comparisonSong, remainingSongs, votes },
+      ]);
+  
+      let newRankings = [...rankings];
+      let newVotes = { ...votes };
+      let insertionIndex: number;
+  
+      switch (preference) {
+        case 'Selection 1':
+          newVotes[currentSong.trackId] = (newVotes[currentSong.trackId] || 0) + 1;
+          insertionIndex = findInsertionIndex(currentSong, 0, newRankings.length);
+          newRankings.splice(insertionIndex, 0, currentSong);
+          break;
+        case 'Selection 2':
+          newVotes[comparisonSong.trackId] = (newVotes[comparisonSong.trackId] || 0) + 1;
+          insertionIndex = findInsertionIndex(currentSong, newRankings.indexOf(comparisonSong) + 1, newRankings.length);
+          newRankings.splice(insertionIndex, 0, currentSong);
+          break;
+        case 'Equal':
+          newVotes[currentSong.trackId] = (newVotes[currentSong.trackId] || 0) + 1;
+          newVotes[comparisonSong.trackId] = (newVotes[comparisonSong.trackId] || 0) + 1;
+          insertionIndex = newRankings.indexOf(comparisonSong);
+          newRankings.splice(insertionIndex + 1, 0, currentSong);
+          break;
+        case 'No Opinion':
+          newRankings.push(currentSong);
+          break;
+      }
+  
+      setRankings(newRankings);
+      setVotes(newVotes);
+      setCurrentSong(remainingSongs.length > 0 ? remainingSongs[0] : null);
+      setRemainingSongs(remainingSongs.slice(1));
+  
+      if (remainingSongs.length === 0) {
+        setIsComplete(true);
+        setComparisonSong(null);
+      } else {
+        setComparisonSong(newRankings[Math.floor(newRankings.length / 2)]);
+      }
+    };
+
     if (!isReady) {
       return <p>Loading songs...</p>;
     }
@@ -200,7 +198,7 @@ export const Ranker: React.FC<Props> = ({ artistName, limit = 10 }) => {
         </div>
       </div>
     );
-  }, [currentSong, comparisonSong, rankings, isComplete, isReady, votes, calculateAlbumRankings, compare]);
+  }, [currentSong, comparisonSong, rankings, isComplete, isReady, votes, calculateAlbumRankings]);
 
   useEffect(() => {
     const startRanking = (): void => {
