@@ -78,11 +78,34 @@ export const Ranker: React.FC<Props> = ({ artistName, limit = 10 }) => {
     }
   }, [state, setState]);
 
-  // Comparing state -> Comparing state or Complete state
+  // Helper function to proceed to the next comparison
+  const proceedToNextComparison = useCallback((updatedRankedSongs: Song[], remainingSongs: Song[]) => {
+    if (remainingSongs.length === 0) {
+      setState({
+        state: "Complete",
+        rankings: updatedRankedSongs,
+        albumRankings: getAlbumRankings(updatedRankedSongs, albums),
+      });
+    } else {
+      const nextSong = remainingSongs[0];
+      const nextMidpoint = Math.floor(updatedRankedSongs.length / 2);
+      setState({
+        state: "Comparing",
+        currentSong: nextSong,
+        comparisonSong: updatedRankedSongs[nextMidpoint],
+        remainingSongs: remainingSongs.slice(1),
+        rankedSongs: updatedRankedSongs,
+        lowerBound: 0,
+        upperBound: updatedRankedSongs.length,
+      });
+    }
+  }, [setState, albums]);
+
+  // Comparing state -> Complete state or next comparison
   const compareSongs = useCallback(
     (preference: Preference) => {
       if (state.state !== "Comparing") return;
-  
+
       const {
         currentSong,
         remainingSongs,
@@ -90,50 +113,53 @@ export const Ranker: React.FC<Props> = ({ artistName, limit = 10 }) => {
         lowerBound,
         upperBound,
       } = state;
-  
-      let insertIndex: number;
-  
-      if (preference === "First" || preference === "Equal") {
-        insertIndex = upperBound;
+
+      let newLowerBound = lowerBound;
+      let newUpperBound = upperBound;
+
+      if (preference === "First") {
+        newLowerBound = Math.floor((lowerBound + upperBound) / 2);
       } else if (preference === "Second") {
-        insertIndex = lowerBound;
-      } else { // "No Opinion"
-        insertIndex = Math.floor(Math.random() * (rankedSongs.length + 1));
-      }
-  
-      const updatedRankedSongs = [
-        ...rankedSongs.slice(0, insertIndex),
-        currentSong,
-        ...rankedSongs.slice(insertIndex)
-      ];
-  
-      if (remainingSongs.length === 0) {
-        setState({
-          state: "Complete",
-          rankings: updatedRankedSongs,
-          albumRankings: getAlbumRankings(updatedRankedSongs, albums),
-        });
+        newUpperBound = Math.floor((lowerBound + upperBound) / 2);
+      } else if (preference === "Equal") {
+        // Insert at the current position
+        const insertIndex = Math.floor((lowerBound + upperBound) / 2);
+        const updatedRankedSongs = [
+          ...rankedSongs.slice(0, insertIndex),
+          currentSong,
+          ...rankedSongs.slice(insertIndex)
+        ];
+        proceedToNextComparison(updatedRankedSongs, remainingSongs);
+        return;
+      } else if (preference === "No Opinion") {
+        // Insert at the end
+        const updatedRankedSongs = [...rankedSongs, currentSong];
+        proceedToNextComparison(updatedRankedSongs, remainingSongs);
         return;
       }
-  
-      const nextSong = remainingSongs[0];
-      const newLowerBound = 0;
-      const newUpperBound = updatedRankedSongs.length;
-      const nextMidpoint = Math.floor((newLowerBound + newUpperBound) / 2);
-      const nextComparisonSong = updatedRankedSongs[nextMidpoint];
-  
-      setState({
-        state: "Comparing",
-        currentSong: nextSong,
-        comparisonSong: nextComparisonSong,
-        remainingSongs: remainingSongs.slice(1),
-        rankedSongs: updatedRankedSongs,
-        lowerBound: newLowerBound,
-        upperBound: newUpperBound,
-      });
+
+      if (newUpperBound - newLowerBound <= 1) {
+        // We've found the correct position
+        const insertIndex = newUpperBound;
+        const updatedRankedSongs = [
+          ...rankedSongs.slice(0, insertIndex),
+          currentSong,
+          ...rankedSongs.slice(insertIndex)
+        ];
+        proceedToNextComparison(updatedRankedSongs, remainingSongs);
+      } else {
+        // Continue binary search
+        const nextMidpoint = Math.floor((newLowerBound + newUpperBound) / 2);
+        setState({
+          ...state,
+          comparisonSong: rankedSongs[nextMidpoint],
+          lowerBound: newLowerBound,
+          upperBound: newUpperBound,
+        });
+      }
     },
-    [state, albums, setState]
-  )
+    [state, proceedToNextComparison, setState]
+  );
 
   const getAlbumRankings = (rankedSongs: Song[], albums: Album[]): Album[] => {
     const albumRankings: { [key: string]: { album: Album; totalRank: number; count: number } } = {};
@@ -284,7 +310,7 @@ export const Ranker: React.FC<Props> = ({ artistName, limit = 10 }) => {
               {placeholders.map((_, index) => (
                 <div key={index} className="h-10" />
               ))}
-              <div className="border p-2 bg-green-100">
+              <div>
                 <p className="text-center text-green-600 font-bold">{state.currentSong.trackName}</p>
               </div>
             </div>
@@ -294,7 +320,7 @@ export const Ranker: React.FC<Props> = ({ artistName, limit = 10 }) => {
               {orderedSongs.map((song, index) => (
                 <p
                   key={index}
-                  className={`text-center ${index === midpointIndex ? "text-blue-600 font-semibold" : ""}`}
+                  className={`text-center h-10 ${index === midpointIndex ? "text-blue-600 font-bold" : ""}`}
                 >
                   {song.trackName}
                 </p>
@@ -308,7 +334,6 @@ export const Ranker: React.FC<Props> = ({ artistName, limit = 10 }) => {
     return null;
   }, [state, showProcess]);
   
-
   return (
     <div>
       {content}
