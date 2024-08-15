@@ -9,233 +9,287 @@ interface Props {
   limit?: number;
 }
 
-type ComparisonState = 'Selection 1' | 'Selection 2' | 'Equal' | 'No Opinion';
+type Preference = "First" | "Second" | "Equal" | "No Opinion";
+
+type LoadingState = {
+  state: "Loading";
+};
+
+type ReadyState = {
+  state: "Ready";
+  songs: Song[];
+  albums: Album[];
+};
+
+type ComparingState = {
+  state: "Comparing";
+  currentSong: Song;
+  comparisonSong: Song;
+  remainingSongs: Song[];
+  rankedSongs: Song[];
+  lowerBound: number;
+  upperBound: number;
+};
+
+type CompleteState = {
+  state: "Complete";
+  rankings: Song[];
+  albumRankings: Album[];
+};
+
+type State = LoadingState | ReadyState | ComparingState | CompleteState;
 
 export const Ranker: React.FC<Props> = ({ artistName, limit = 10 }) => {
   const { songs, albums, isReady } = useSongs({ artistName, limit, sort: 'random' });
 
-  const [rankings, setRankings] = useState<Song[]>([]);
-  const [currentSong, setCurrentSong] = useState<Song | null>(null);
-  const [comparisonSong, setComparisonSong] = useState<Song | null>(null);
-  const [remainingSongs, setRemainingSongs] = useState<Song[]>([]);
-  const [isComplete, setIsComplete] = useState<boolean>(false);
-  const [votes, setVotes] = useState<Record<string, number>>({});
-  const [history, setHistory] = useState<Array<{ rankings: Song[]; currentSong: Song | null; comparisonSong: Song | null; remainingSongs: Song[]; votes: Record<string, number>; }>>([]);
+  const [stateHistory, setStateHistory] = useState<State[]>([{ state: "Loading" }]);
+  const [showProcess, setShowProcess] = useState(false);
 
-  const undo = (): void => {
-    if (history.length === 0) return;
+  const state = stateHistory[stateHistory.length - 1];
 
-    const lastState = history[history.length - 1];
-    setRankings(lastState.rankings);
-    setCurrentSong(lastState.currentSong);
-    setComparisonSong(lastState.comparisonSong);
-    setRemainingSongs(lastState.remainingSongs);
-    setVotes(lastState.votes);
-    setHistory(history.slice(0, history.length - 1));
-  };
+  const setState = useCallback((newState: State) => {
+    setStateHistory((prev) => [...prev, newState]);
+  }, []);
 
-  const calculateAlbumRankings = useCallback((): Array<Album & { averageRank: number; totalVotes: number; }> => albums
-    .map(album => {
-      const albumSongs = rankings.filter(song => song.collectionName === album.collectionName);
-      const averageRank = albumSongs.reduce((sum, song) => sum + rankings.indexOf(song), 0) / albumSongs.length;
-      const totalVotes = albumSongs.reduce((sum, song) => sum + (votes[song.trackId] || 0), 0);
-      return { ...album, averageRank, totalVotes };
-    })
-    .filter(album => album.totalVotes > 0)
-    .sort((a, b) => {
-      if (a.totalVotes !== b.totalVotes) {
-        return b.totalVotes - a.totalVotes;
-      }
-      return a.averageRank - b.averageRank;
-    }), [albums, rankings, votes]);
+  const popState = useCallback(() => {
+    setStateHistory((prev) => prev.slice(0, prev.length - 1));
+  }, []);
 
-  const generateShareableContent = (): string => {
-    let content = `My ${artistName} Song Rankings:\n\n`;
-    rankings.forEach((song, index) => {
-      content += `${index + 1}. ${song.trackName} (${votes[song.trackId] || 0} votes)\n`;
-    });
-    content += '\nAlbum Rankings:\n';
-    const albumRankings = calculateAlbumRankings();
-    albumRankings.forEach((album, index) => {
-      content += `${index + 1}. ${album.collectionName} (${album.totalVotes} total votes)\n`;
-    });
-    return content;
-  };
-
-  const handleShare = async () => {
-    const content = generateShareableContent();
-    
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `${artistName} Song Rankings`,
-          text: content,
-        });
-      } catch (error) {
-        console.error('Error sharing:', error);
-      }
-    } else {
-      // Fallback to copying to clipboard
-      navigator.clipboard.writeText(content)
-        .then(() => {
-          alert('Rankings copied to clipboard!');
-        })
-        .catch((err) => {
-          console.error('Failed to copy: ', err);
-        });
+  // Loading state -> Ready state
+  useEffect(() => {
+    if (isReady && state.state === "Loading") {
+      setState({ state: "Ready", songs, albums });
     }
+  }, [isReady, state, songs, albums, setState]);
+
+  // Ready state -> Comparing state
+  useEffect(() => {
+    if (state.state === "Ready") {
+      const [firstSong, secondSong, ...restSongs] = state.songs;
+      setState({
+        state: "Comparing",
+        currentSong: secondSong,
+        comparisonSong: firstSong,
+        remainingSongs: restSongs,
+        rankedSongs: [firstSong],
+        lowerBound: 0,
+        upperBound: 1,  // Initialize upperBound to 1 as we start with one ranked song
+      });
+    }
+  }, [state, setState]);
+
+  // Comparing state -> Comparing state or Complete state
+  const compareSongs = useCallback(
+    (preference: Preference) => {
+      if (state.state !== "Comparing") return;
+  
+      const {
+        currentSong,
+        remainingSongs,
+        rankedSongs,
+        lowerBound,
+        upperBound,
+      } = state;
+  
+      let insertIndex: number;
+  
+      if (preference === "First" || preference === "Equal") {
+        insertIndex = upperBound;
+      } else if (preference === "Second") {
+        insertIndex = lowerBound;
+      } else { // "No Opinion"
+        insertIndex = Math.floor(Math.random() * (rankedSongs.length + 1));
+      }
+  
+      const updatedRankedSongs = [
+        ...rankedSongs.slice(0, insertIndex),
+        currentSong,
+        ...rankedSongs.slice(insertIndex)
+      ];
+  
+      if (remainingSongs.length === 0) {
+        setState({
+          state: "Complete",
+          rankings: updatedRankedSongs,
+          albumRankings: getAlbumRankings(updatedRankedSongs, albums),
+        });
+        return;
+      }
+  
+      const nextSong = remainingSongs[0];
+      const newLowerBound = 0;
+      const newUpperBound = updatedRankedSongs.length;
+      const nextMidpoint = Math.floor((newLowerBound + newUpperBound) / 2);
+      const nextComparisonSong = updatedRankedSongs[nextMidpoint];
+  
+      setState({
+        state: "Comparing",
+        currentSong: nextSong,
+        comparisonSong: nextComparisonSong,
+        remainingSongs: remainingSongs.slice(1),
+        rankedSongs: updatedRankedSongs,
+        lowerBound: newLowerBound,
+        upperBound: newUpperBound,
+      });
+    },
+    [state, albums, setState]
+  )
+
+  const getAlbumRankings = (rankedSongs: Song[], albums: Album[]): Album[] => {
+    const albumRankings: { [key: string]: { album: Album; totalRank: number; count: number } } = {};
+
+    rankedSongs.forEach((song, index) => {
+      const album = albums.find((album) => album.collectionId === song.collectionId);
+      if (album) {
+        if (!albumRankings[album.collectionId]) {
+          albumRankings[album.collectionId] = { album, totalRank: 0, count: 0 };
+        }
+        albumRankings[album.collectionId].totalRank += index + 1;
+        albumRankings[album.collectionId].count += 1;
+      }
+    });
+
+    return Object.values(albumRankings)
+      .map(({ album, totalRank, count }) => ({
+        ...album,
+        averageRank: totalRank / count,
+      }))
+      .sort((a, b) => a.averageRank - b.averageRank);
   };
 
   const content = useMemo(() => {
-    const findInsertionIndex = (song: Song, start: number, end: number): number => {
-      if (start >= end) {
-        return start;
-      }
-  
-      const mid = Math.floor((start + end) / 2);
-      const comparison = rankings[mid];
-  
-      if ((votes[song.trackId] || 0) > (votes[comparison.trackId] || 0) ||
-          ((votes[song.trackId] || 0) === (votes[comparison.trackId] || 0) && 
-           song.trackName.localeCompare(comparison.trackName) < 0)) {
-        return findInsertionIndex(song, start, mid);
-      } else {
-        return findInsertionIndex(song, mid + 1, end);
-      }
-    };
-
-    const compare = (preference: ComparisonState): void => {
-      if (!currentSong || !comparisonSong) return;
-  
-      setHistory(prevHistory => [
-        ...prevHistory,
-        { rankings, currentSong, comparisonSong, remainingSongs, votes },
-      ]);
-  
-      let newRankings = [...rankings];
-      let newVotes = { ...votes };
-      let insertionIndex: number;
-  
-      switch (preference) {
-        case 'Selection 1':
-          newVotes[currentSong.trackId] = (newVotes[currentSong.trackId] || 0) + 1;
-          insertionIndex = findInsertionIndex(currentSong, 0, newRankings.length);
-          newRankings.splice(insertionIndex, 0, currentSong);
-          break;
-        case 'Selection 2':
-          newVotes[comparisonSong.trackId] = (newVotes[comparisonSong.trackId] || 0) + 1;
-          insertionIndex = findInsertionIndex(currentSong, newRankings.indexOf(comparisonSong) + 1, newRankings.length);
-          newRankings.splice(insertionIndex, 0, currentSong);
-          break;
-        case 'Equal':
-          newVotes[currentSong.trackId] = (newVotes[currentSong.trackId] || 0) + 1;
-          newVotes[comparisonSong.trackId] = (newVotes[comparisonSong.trackId] || 0) + 1;
-          insertionIndex = newRankings.indexOf(comparisonSong);
-          newRankings.splice(insertionIndex + 1, 0, currentSong);
-          break;
-        case 'No Opinion':
-          newRankings.push(currentSong);
-          break;
-      }
-  
-      setRankings(newRankings);
-      setVotes(newVotes);
-      setCurrentSong(remainingSongs.length > 0 ? remainingSongs[0] : null);
-      setRemainingSongs(remainingSongs.slice(1));
-  
-      if (remainingSongs.length === 0) {
-        setIsComplete(true);
-        setComparisonSong(null);
-      } else {
-        setComparisonSong(newRankings[Math.floor(newRankings.length / 2)]);
-      }
-    };
-
-    if (!isReady) {
+    if (state.state === "Loading" || state.state === "Ready") {
       return <p>Loading songs...</p>;
     }
 
-    if (isComplete) {
-      const albumRankings = calculateAlbumRankings();
+    if (state.state === "Complete") {
       return (
         <div>
           <h2 className="text-xl font-semibold mb-2">Final Song Rankings</h2>
           <ol>
-            {rankings.map((song, index) => (
-              <li key={`${song.trackId}-${index}`}>{`${index + 1}. ${song.trackName} (${votes[song.trackId] || 0} votes)`}</li>
+            {state.rankings.map((song, index) => (
+              <li key={`${song.trackId}-${index}`}>{`${index + 1}. ${song.trackName}`}</li>
             ))}
           </ol>
           <h2 className="text-xl font-semibold mt-4 mb-2">Album Rankings</h2>
           <ol>
-            {albumRankings.map((album, index) => (
-              <li key={album.collectionId}>{`${index + 1}. ${album.collectionName} (${album.totalVotes} total votes)`}</li>
+            {state.albumRankings.map((album, index) => (
+              <li key={album.collectionId}>{`${index + 1}. ${album.collectionName}`}</li>
             ))}
           </ol>
         </div>
       );
     }
 
-    if (currentSong == null || comparisonSong == null) {
-      return <p>Loading...</p>;
-    }
-
     return (
       <div>
         <h2 className="text-xl font-semibold mb-2">Which song do you prefer?</h2>
         <div className="flex justify-between gap-4 mb-4">
-          <div className='w-1/2'>
-            <SongCard song={currentSong} />
-            <Button onClick={() => compare('Selection 1')} className='mt-4 w-full' variant="default">{currentSong.trackName}</Button>
+          <div className="w-1/2">
+            <SongCard song={state.currentSong} />
+            <Button
+              onClick={() => compareSongs('First')}
+              className="mt-4 w-full"
+              variant="default"
+            >
+              {state.currentSong.trackName}
+            </Button>
           </div>
-          <div className='w-1/2'>
-            <SongCard song={comparisonSong} />
-            <Button onClick={() => compare('Selection 2')} className='mt-4 w-full' variant="default">{comparisonSong.trackName}</Button>
+          <div className="w-1/2">
+            <SongCard song={state.comparisonSong} />
+            <Button
+              onClick={() => compareSongs('Second')}
+              className="mt-4 w-full"
+              variant="default"
+            >
+              {state.comparisonSong.trackName}
+            </Button>
           </div>
         </div>
         <div className="flex gap-4 mb-4">
-          <Button onClick={() => compare('Equal')} className='w-full' variant="secondary">Equal</Button>
-          <Button onClick={() => compare('No Opinion')} className='w-full' variant="secondary">No Opinion</Button>
+          <Button onClick={() => compareSongs('Equal')} className="w-full" variant="secondary">
+            Equal
+          </Button>
+          <Button
+            onClick={() => compareSongs('No Opinion')}
+            className="w-full"
+            variant="secondary"
+          >
+            No Opinion
+          </Button>
         </div>
       </div>
     );
-  }, [currentSong, comparisonSong, rankings, isComplete, isReady, votes, calculateAlbumRankings, remainingSongs]);
+  }, [compareSongs, state]);
 
-  useEffect(() => {
-    const startRanking = (): void => {
-      const shuffledSongs = [...songs].sort(() => Math.random() - 0.5);
-      const [first, second, ...rest] = shuffledSongs;
-      setRankings([first]);
-      setCurrentSong(second);
-      setRemainingSongs(rest);
-      setComparisonSong(first);
-      setVotes({ [first.trackId]: 1 });
-    };
-
-    if (songs.length > 0 && isReady) {
-      startRanking();
+  const footer = useMemo(() => {
+    const handleShare = () => {
+      if (state.state !== "Complete") return;
+  
+      const subject = encodeURIComponent(`${artistName} Song Rankings`);
+      let body = `Here are my ${artistName} song rankings:\n\n`;
+  
+      body += state.rankings.map((song, index) => `${index + 1}. ${song.trackName}`).join('\n');
+      
+      body += '\n\nAlbum Rankings:\n\n';
+      body += state.albumRankings.map((album, index) => `${index + 1}. ${album.collectionName}`).join('\n');
+  
+      body = encodeURIComponent(body);
+  
+      window.open(`mailto:?subject=${subject}&body=${body}`);
     }
-  }, [songs, isReady]);
+
+    if (state.state === "Complete") {
+      return (
+        <div className="mt-4">
+          <Button onClick={() => window.location.reload()} variant="default">
+            Restart
+          </Button>
+          <Button onClick={handleShare} className="ml-2" variant="default">
+            Share Rankings
+          </Button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="mt-4 flex items-center">
+        <Button onClick={() => { popState(); }} variant="default" className="ml-2" disabled={state.state === "Comparing" && state.rankedSongs.length === 0}>
+          Undo
+        </Button>
+        <div className="ml-auto flex items-center gap-2">
+          <label>Show process</label>
+          <input type="checkbox" checked={showProcess} onChange={e => setShowProcess(e.target.checked)} />
+        </div>
+      </div>
+    );
+  }, [showProcess, state, popState]);
+
+  const processContent = useMemo(() => {
+    if (state.state === "Comparing" && showProcess) {
+      const midpoint = Math.floor((state.lowerBound + state.upperBound) / 2);
+
+      return (
+        <div className="mt-4 p-4 border-t">
+          <h3 className="text-lg font-semibold mb-2">Behind the Scenes</h3>
+          <p><strong>Lower Bound:</strong> {state.lowerBound}</p>
+          <p><strong>Upper Bound:</strong> {state.upperBound}</p>
+          <p><strong>Midpoint Index:</strong> {midpoint}</p>
+          <p><strong>Current Song:</strong> {state.currentSong.trackName}</p>
+          <p><strong>Comparison Song:</strong> {state.comparisonSong.trackName}</p>
+          <p><strong>Ranked Songs:</strong> {state.rankedSongs.map(song => song.trackName).join(', ')}</p>
+          <p><strong>Remaining Songs:</strong> {state.remainingSongs.map(song => song.trackName).join(', ')}</p>
+        </div>
+      );
+    }
+    return null;
+  }, [state, showProcess]);
 
   return (
     <div>
       {content}
-      <div className="mt-4">
-        {isComplete && (
-          <>
-            <Button onClick={() => window.location.reload()} variant="default">
-              Restart
-            </Button>
-            <Button onClick={handleShare} className="ml-2" variant="default">
-              Share Rankings
-            </Button>
-          </>
-        )}
-        {!isComplete && (
-          <Button onClick={undo} variant="default" className="ml-2" disabled={history.length === 0}>
-            Undo
-          </Button>
-        )}
-      </div>
+      <div className="mt-4">{footer}</div>
+      <div className="mt-4">{processContent}</div>
     </div>
   );
 };
