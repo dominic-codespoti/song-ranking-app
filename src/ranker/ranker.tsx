@@ -263,7 +263,7 @@ export const Ranker: React.FC<Props> = ({ artistName, limit = 10 }) => {
         </div>
       </div>
     );
-  }, [showProcess, state, popState]);
+  }, [state, showProcess, artistName, popState]);
 
   const processContent = useMemo(() => {
     if (state.state === "Comparing" && showProcess) {
