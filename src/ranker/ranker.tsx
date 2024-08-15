@@ -267,23 +267,47 @@ export const Ranker: React.FC<Props> = ({ artistName, limit = 10 }) => {
 
   const processContent = useMemo(() => {
     if (state.state === "Comparing" && showProcess) {
-      const midpoint = Math.floor((state.lowerBound + state.upperBound) / 2);
-
+      const midpointIndex = Math.floor((state.lowerBound + state.upperBound) / 2);
+      const orderedSongs = state.rankedSongs;
+    
+      // Generate fake list to align the current song
+      const placeholders = Array(midpointIndex).fill(null);
+    
       return (
         <div className="mt-4 p-4 border-t">
-          <h3 className="text-lg font-semibold mb-2">Behind the Scenes</h3>
-          <p><strong>Lower Bound:</strong> {state.lowerBound}</p>
-          <p><strong>Upper Bound:</strong> {state.upperBound}</p>
-          <p><strong>Midpoint Index:</strong> {midpoint}</p>
-          <p><strong>Current Song:</strong> {state.currentSong.trackName}</p>
-          <p><strong>Comparison Song:</strong> {state.comparisonSong.trackName}</p>
-          <p><strong>Ranked Songs:</strong> {state.rankedSongs.map(song => song.trackName).join(', ')}</p>
-          <p><strong>Remaining Songs:</strong> {state.remainingSongs.map(song => song.trackName).join(', ')}</p>
+          <h3 className="text-lg font-semibold mb-2">Current Comparison</h3>
+          
+          <div className="grid grid-cols-2 gap-4 items-start">
+  
+            {/* Left column: Current song */}
+            <div className="flex flex-col items-center">
+              {placeholders.map((_, index) => (
+                <div key={index} className="h-10" />
+              ))}
+              <div className="border p-2 bg-green-100">
+                <p className="text-center text-green-600 font-bold">{state.currentSong.trackName}</p>
+              </div>
+            </div>
+    
+            {/* Right column: Ordered songs */}
+            <div className="flex flex-col items-center">
+              {orderedSongs.map((song, index) => (
+                <p
+                  key={index}
+                  className={`text-center ${index === midpointIndex ? "text-blue-600 font-semibold" : ""}`}
+                >
+                  {song.trackName}
+                </p>
+              ))}
+            </div>
+  
+          </div>
         </div>
       );
     }
     return null;
   }, [state, showProcess]);
+  
 
   return (
     <div>
