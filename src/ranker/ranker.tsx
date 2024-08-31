@@ -218,7 +218,7 @@ export const Ranker: React.FC<Props> = ({ artistName, limit = 10 }) => {
               className="mt-4 w-full"
               variant="default"
             >
-              {state.currentSong.trackName}
+              <p className="whitespace-normal text-center text-ellipsis line-clamp-1">{state.currentSong.trackName}</p>
             </Button>
           </div>
           <div className="w-1/2">
@@ -228,7 +228,7 @@ export const Ranker: React.FC<Props> = ({ artistName, limit = 10 }) => {
               className="mt-4 w-full"
               variant="default"
             >
-              {state.comparisonSong.trackName}
+              <p className="whitespace-normal text-center text-ellipsis line-clamp-1">{state.comparisonSong.trackName}</p>
             </Button>
           </div>
         </div>
