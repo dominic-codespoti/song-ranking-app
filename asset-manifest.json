@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/song-ranking-app/static/css/main.66fe6298.css",
-    "main.js": "/song-ranking-app/static/js/main.fb40e299.js",
+    "main.js": "/song-ranking-app/static/js/main.1d84b059.js",
     "index.html": "/song-ranking-app/index.html",
     "main.66fe6298.css.map": "/song-ranking-app/static/css/main.66fe6298.css.map",
-    "main.fb40e299.js.map": "/song-ranking-app/static/js/main.fb40e299.js.map"
+    "main.1d84b059.js.map": "/song-ranking-app/static/js/main.1d84b059.js.map"
   },
   "entrypoints": [
     "static/css/main.66fe6298.css",
-    "static/js/main.fb40e299.js"
+    "static/js/main.1d84b059.js"
   ]
 }
