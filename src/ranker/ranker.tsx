@@ -71,7 +71,7 @@ export const Ranker: React.FC<Props> = ({ artistName, limit = 10 }) => {
         currentSong: secondSong,
         comparisonSong: firstSong,
         remainingSongs: restSongs,
-        rankedSongs: [firstSong],
+        rankedSongs: [],
         lowerBound: 0,
         upperBound: 1,  // Initialize upperBound to 1 as we start with one ranked song
       });
@@ -117,9 +117,9 @@ export const Ranker: React.FC<Props> = ({ artistName, limit = 10 }) => {
       let newLowerBound = lowerBound;
       let newUpperBound = upperBound;
 
-      if (preference === "First") {
+      if (preference === "Second") {
         newLowerBound = Math.floor((lowerBound + upperBound) / 2);
-      } else if (preference === "Second") {
+      } else if (preference === "First") {
         newUpperBound = Math.floor((lowerBound + upperBound) / 2);
       } else if (preference === "Equal") {
         // Insert at the current position

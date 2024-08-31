@@ -1,4 +1,4 @@
-# Song Ranking App
+# Song Ranker
 
 ## Overview
 
@@ -33,14 +33,3 @@ npm start
 ```
 
 Navigate to `http://localhost:3000` in your web browser to access the app.
-
-## Acceptance Criteria
-
-1. **Initial Display**: When the app opens, two random songs from a predefined set are displayed, and users can select between four options: Selection 1, Selection 2, Equal, and No Opinion.
-2. **Song Ranking**: Clicking on a song ranks it higher than the other option.
-3. **Repetition**: New songs are shown repeatedly until they are correctly positioned in the ranking.
-4. **Equal Ranking**: Clicking on "Equal" ranks the two compared songs equally.
-5. **No Opinion**: Clicking on "No Opinion" ranks the song last.
-6. **Completion**: The process repeats until all songs are ranked.
-7. **Final Rankings**: Displays a list of all songs in ranked order.
-8. **Album Rankings**: Shows rankings based on albums in a separate list below the final song rankings.
